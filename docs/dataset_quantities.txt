@@ -1,0 +1,24 @@
+SN
+Date
+Time
+Time(Sec)
+Tr1 [C] - Wet channel outlet air enters to condenser
+T1 [C] - Supply Air to Room after Evaporator
+RH1 [%] - Supply Air to Room after Evaporator
+w1 [g/kg] - Supply Air to Room after Evaporator
+CMHsa [m3/Hr] - Supply Air to Room after Evaporator
+T2 [C] - Mixture of T3 and T4 (if mixed)
+RH2 [%] - Mixture of T3 and T4 (if mixed)
+w2 [g/kg] - Mixture of T3 and T4 (if mixed)
+T3 [C] - IEC Dry channel outlet & enters MVC Evaporator
+RH3 [%] - IEC Dry channel outlet & enters MVC Evaporator
+T4 [C] - Room Exhaust Air Enters to IEC Wet channel
+RH4 [%] - Room Exhaust Air Enters to IEC Wet channel
+w4 [g/kg] - Room Exhaust Air Enters to IEC Wet channel
+Tr2 [C] - Outdoor air enters dry channel of IEC
+RHr2 [%] - Outdoor air enters dry channel of IEC
+wr2 [g/kg] - Outdoor air enters dry channel of IEC
+CMHoa [m3/Hr] - Outdoor air enters dry channel of IEC
+Qcoil [kW]
+Qiec [kW]
+ECompPower [kW]

@@ -1,0 +1,79 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+
+\title{\vspace{-1.5em}NIEC +2 MVC EP-PINN: Complete Equation List\vspace{-1em}}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2em}
+
+\section*{Quantities, in forward-pass order}
+
+\noindent\textbf{Direct (fixed, non-trainable):}
+\begin{align}
+h_{r2} &= 1.006\,T_{r2} + w_{r2}(2501+1.86\,T_{r2}) \\
+h_4 &= 1.006\,T4 + w4(2501+1.86\,T4) \\
+T_{wb,4} &= T4\arctan\!\big[0.151977\sqrt{RH4+8.313659}\big] + \arctan(T4+RH4) \nonumber\\
+&\quad - \arctan(RH4-1.676331) + 0.00391838\,RH4^{1.5}\arctan(0.023101\,RH4) - 4.686035 \\
+\dot m_{oa} &= \frac{CMHoa \cdot \rho(T_{r2})}{3600} \\
+AFR  &= \frac{V_{sa}}{V_{oa}}\\
+\epsilon_{dry,obs} &= \frac{T_{r2}-T3^{meas}}{T_{r2}-T_{wb,4}}
+\end{align}
+
+\noindent\textbf{Sub-network 1 (trainable):}
+\begin{align}
+\hat\epsilon_{dry} &= f_1(V_{oa},\ Tr2,\ AFR;\ \theta_1)
+\end{align}
+
+\noindent\textbf{Direct (fixed, non-trainable):}
+\begin{align}
+\hat T3 &= T_{r2} - \hat\epsilon_{dry}(T_{r2}-T_{wb,4}) \\
+\hat w3 &= w_{r2} \quad (\text{Assumed symmetry}{})\\
+\widehat{RH3} &= 100\cdot\frac{P_w(\hat w3)}{P_{ws}(\hat T3)}, \quad
+P_{ws}(T)=0.6108\exp\!\left(\frac{17.27\,T}{T+237.3}\right),\quad
+P_w(w)=\frac{101.325\,(w/1000)}{0.622+(w/1000)} \\
+\hat h_3 &= 1.006\,\hat T3 + \hat w3(2501+1.86\,\hat T3) \\
+\hat Q_{iec} &= \dot m_{oa}\,(h_{r2}-\hat h_3) \\
+\epsilon_{wet,obs} &= \frac{T4-T_{r1}^{meas}}{T4-T_{wb,4}}
+\end{align}
+
+\noindent\textbf{Sub-network 2 (trainable):}
+\begin{align}
+\hat\epsilon_{wet} &= f_2(V_{oa},\ T_4,\ AFR;\ \theta_2)
+\end{align}
+
+\noindent\textbf{Direct (fixed, non-trainable):}
+\begin{align}
+\hat T_{r1} &= T4 - \hat\epsilon_{wet}(T4-T_{wb,4})\\
+% \text{mix\_flag} &=
+\end{align}
+
+\noindent\textbf{Sub-network 3 (trainable):}
+\begin{align}
+[\hat T1,\ \hat Q_{coil},\ \hat{ECompPower}] &= f_3(\hat T3,\ T2,\ T1,\ \hat T_{r1},\ CMHsa;\ \theta_3)
+\end{align}
+
+\noindent\textbf{Direct (fixed, non-trainable):}
+\begin{align}
+\hat{COP}_{system} &= \frac{\hat Q_{iec}+\hat Q_{coil}}{\hat{ECompPower}}
+\end{align}
+
+\section*{Loss functions}
+
+\begin{align}
+Loss_{Obs} &= \|T3^{meas}-\hat T3\|^2 + \|T_{r1}^{meas}-\hat T_{r1}\|^2 + \|T1^{meas}-\hat T1\|^2 \nonumber\\
+&\quad + \|Qcoil^{meas}-\hat Q_{coil}\|^2 + \|ECompPower^{meas}-\hat{ECompPower}\|^2 \\[4pt]
+Loss_{phy,\epsilon_{dry}} &= \lambda\,\|\hat\epsilon_{dry}-\epsilon_{dry,obs}\|^2 \\
+Loss_{phy,\epsilon_{wet}} &= \lambda\,\|\hat\epsilon_{wet}-\epsilon_{wet,obs}\|^2 \\
+Loss_{phy,Qiec} &= \lambda\,\|\hat Q_{iec}-Qiec^{meas}\|^2 \\
+Loss_{phy,RH3} &= \lambda\,\|\widehat{RH3}-RH3^{meas}\|^2 \\[4pt]
+Loss_{total} &= Loss_{Obs} + Loss_{phy,\epsilon_{dry}} + Loss_{phy,\epsilon_{wet}} + Loss_{phy,Qiec} + Loss_{phy,RH3}
+\end{align}
+
+\noindent Note: $\hat{COP}_{system}$ does not appear in $Loss_{total}$. t is a derived
+reporting quantity only, its accuracy inherited entirely from $\hat Q_{iec}$, $\hat Q_{coil}$, and $\hat{ECompPower}$, each supervised separately above.
+
+\end{document}
