@@ -79,6 +79,14 @@ def rmse(a, b):
 def mae(a, b):
     return float(np.mean(np.abs(a - b)))
 
+def bias(a, b):
+    return float(np.mean(b - a))
+
+def r2_score(a, b):
+    var_a = np.var(a)
+    if var_a > 1e-12:
+        return float(1 - np.var(a - b) / var_a)
+    return float("nan")
 
 # ── Plot functions ─────────────────────────────────────────────────────────────
 
@@ -233,6 +241,67 @@ def plot_timeseries(targets_dict, run_dir, show, n_samples=500):
     savefig(fig, os.path.join(run_dir, "timeseries.png"), show)
 
 
+def save_metrics_txt(iec_data, mvc_data, train_h, val_h, run_dir):
+    iec_pred, iec_inp = iec_data["predictions"], iec_data["inputs"]
+    mvc_pred, mvc_inp = mvc_data["predictions"], mvc_data["inputs"]
+    
+    val_losses = [d.get("total", float("inf")) for d in val_h]
+    train_losses = [d.get("total", float("inf")) for d in train_h]
+    best_epoch = int(np.argmin(val_losses)) + 1
+    
+    targets = {
+        "T3  (IEC dry-ch outlet)": (t(iec_inp["T3"]), t(iec_pred["hat_T3"]), "°C"),
+        "Tr1 (IEC wet-ch outlet)": (t(iec_inp["Tr1"]), t(iec_pred["hat_Tr1"]), "°C"),
+        "Qiec (IEC cooling capacity)": (t(iec_inp["Qiec"]), t(iec_pred["hat_Qiec"]), "kW"),
+        "RH3 (IEC dry-ch outlet RH)": (t(iec_inp["RH3"]), t(iec_pred["hat_RH3"]), "%"),
+        "T1  (MVC supply air)": (t(mvc_inp["T1"]), t(mvc_pred["hat_T1"]), "°C"),
+        "Qcoil (MVC coil load)": (t(mvc_inp["Qcoil"]), t(mvc_pred["hat_Qcoil"]), "kW"),
+        "ECompPower": (t(mvc_inp["ECompPower"]), t(mvc_pred["hat_ECompPower"]), "kW"),
+    }
+    
+    lines = [
+        "=" * 68,
+        "  EP-PINN — NIEC+MVC System  |  Test Set Results",
+        "=" * 68,
+        "",
+        f"Run directory : {run_dir}",
+        f"Best epoch    : {best_epoch}  (early-stopped at {len(val_losses)} / 600 max)",
+        f"Best val loss : {min(val_losses):.4f}  (MSE, mixed units)",
+        f"Final train   : {train_losses[best_epoch-1]:.4f}",
+        "",
+        "-" * 68,
+        "  Test-set metrics  (model loaded: model_best.pt)",
+        "-" * 68,
+        f"  {'Target':<28}  {'RMSE':>8}  {'MAE':>8}  {'Bias':>8}  {'R²':>6}  Unit",
+    ]
+    
+    for name, (y_true, y_pred, unit) in targets.items():
+        r = rmse(y_true, y_pred)
+        m = mae(y_true, y_pred)
+        b = bias(y_true, y_pred)
+        r2 = r2_score(y_true, y_pred)
+        lines.append(f"  {name:<28}  {r:>8.4f}  {m:>8.4f}  {b:>8.4f}  {r2:>6.3f}  {unit}")
+    
+    eps_dry_t, eps_dry_p = t(iec_pred["eps_dry_obs"]), t(iec_pred["hat_eps_dry"])
+    eps_wet_t, eps_wet_p = t(iec_pred["eps_wet_obs"]), t(iec_pred["hat_eps_wet"])
+    
+    valid_mask = (eps_wet_t >= 0) & (eps_wet_t <= 1)
+    ew_true_val = eps_wet_t[valid_mask]
+    ew_pred_val = eps_wet_p[valid_mask]
+    
+    lines += [
+        "",
+        "  -- Effectiveness --",
+        f"  eps_dry (all rows)              RMSE={rmse(eps_dry_t, eps_dry_p):.4f}  R²={r2_score(eps_dry_t, eps_dry_p):.3f}",
+        f"  eps_wet (all rows)              RMSE={rmse(eps_wet_t, eps_wet_p):.4f}  R²={r2_score(eps_wet_t, eps_wet_p):.3f}",
+        f"  eps_wet (valid rows only)       RMSE={rmse(ew_true_val, ew_pred_val):.4f}  R²={r2_score(ew_true_val, ew_pred_val):.3f}",
+        "=" * 68,
+    ]
+    
+    text = "\n".join(lines)
+    with open(os.path.join(run_dir, "results.txt"), "w") as f:
+        f.write(text + "\n")
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main(run_dir, show):
@@ -285,7 +354,10 @@ def main(run_dir, show):
     print("Plotting time series...")
     plot_timeseries(targets, run_dir, show)
 
-    print(f"\nAll plots saved to: {run_dir}")
+    print("Generating results.txt metrics...")
+    save_metrics_txt(iec_data, mvc_data, train_h, val_h, run_dir)
+
+    print(f"\nAll plots and results.txt saved to: {run_dir}")
 
 
 if __name__ == "__main__":
